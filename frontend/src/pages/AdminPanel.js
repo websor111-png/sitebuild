@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useSiteSettings } from '../hooks/useSiteSettings';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { 
   Users, Smartphone, Shield, ShieldOff, Trash2, ArrowLeft, 
-  BarChart3, LogOut, Ban, CheckCircle 
+  BarChart3, LogOut, Ban, CheckCircle, Settings, Image, Save
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import {
@@ -22,11 +23,15 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export default function AdminPanel() {
   const { user, logout, axiosConfig } = useAuth();
+  const siteSettings = useSiteSettings();
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
   const [apps, setApps] = useState([]);
   const [loading, setLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [siteLogoUrl, setSiteLogoUrl] = useState('');
+  const [siteName, setSiteName] = useState('');
+  const [savingSettings, setSavingSettings] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -34,18 +39,37 @@ export default function AdminPanel() {
 
   const fetchData = async () => {
     try {
-      const [statsRes, usersRes, appsRes] = await Promise.all([
+      const [statsRes, usersRes, appsRes, settingsRes] = await Promise.all([
         axios.get(`${API}/admin/stats`, axiosConfig()),
         axios.get(`${API}/admin/users`, axiosConfig()),
         axios.get(`${API}/admin/apps`, axiosConfig()),
+        axios.get(`${API}/settings`),
       ]);
       setStats(statsRes.data);
       setUsers(usersRes.data);
       setApps(appsRes.data);
+      setSiteLogoUrl(settingsRes.data.logo_url || '');
+      setSiteName(settingsRes.data.site_name || '');
     } catch {
       toast.error('Failed to load admin data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const saveSiteSettings = async () => {
+    setSavingSettings(true);
+    try {
+      await axios.put(`${API}/settings`, {
+        logo_url: siteLogoUrl,
+        site_name: siteName,
+        favicon_url: siteLogoUrl
+      }, axiosConfig());
+      toast.success('Site settings saved! Refresh to see changes.');
+    } catch {
+      toast.error('Failed to save settings');
+    } finally {
+      setSavingSettings(false);
     }
   };
 
@@ -86,9 +110,9 @@ export default function AdminPanel() {
             <Link to="/dashboard" className="text-[#52525B] hover:text-[#0A0A0A] transition-colors" data-testid="admin-back">
               <ArrowLeft className="w-5 h-5" />
             </Link>
-            <span className="font-heading font-bold text-[#0A0A0A] text-lg">
-              ELYN<span className="text-[#002FA7]">BUILDER</span>
-              <span className="text-xs ml-2 px-2 py-0.5 bg-[#002FA7] text-white rounded-sm font-medium uppercase tracking-wider">Admin</span>
+            <span className="flex items-center gap-2">
+              <img src={siteSettings.logo_url} alt="Elyn" className="h-12 w-auto object-contain" />
+              <span className="text-xs px-2 py-0.5 bg-[#002FA7] text-white rounded-sm font-medium uppercase tracking-wider">Admin</span>
             </span>
           </div>
           <div className="flex items-center gap-4">
@@ -130,6 +154,9 @@ export default function AdminPanel() {
             </TabsTrigger>
             <TabsTrigger value="apps" className="rounded-sm text-xs data-[state=active]:bg-[#002FA7] data-[state=active]:text-white" data-testid="admin-tab-apps">
               <Smartphone className="w-3.5 h-3.5 mr-1.5" /> Apps ({apps.length})
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="rounded-sm text-xs data-[state=active]:bg-[#002FA7] data-[state=active]:text-white" data-testid="admin-tab-settings">
+              <Settings className="w-3.5 h-3.5 mr-1.5" /> Site Settings
             </TabsTrigger>
           </TabsList>
 
@@ -243,6 +270,98 @@ export default function AdminPanel() {
                     )}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* Site Settings Tab */}
+          <TabsContent value="settings">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Logo Settings */}
+              <div className="card-base p-6" data-testid="site-settings-logo">
+                <div className="flex items-center gap-2 mb-4">
+                  <Image className="w-5 h-5 text-[#002FA7]" />
+                  <h3 className="font-heading font-semibold text-[#0A0A0A]">Logo & Branding</h3>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="label-text block mb-2">Site Name</label>
+                    <input
+                      value={siteName}
+                      onChange={e => setSiteName(e.target.value)}
+                      className="input-base"
+                      placeholder="Elyn Builder"
+                      data-testid="site-name-input"
+                    />
+                  </div>
+                  <div>
+                    <label className="label-text block mb-2">Logo URL</label>
+                    <input
+                      value={siteLogoUrl}
+                      onChange={e => setSiteLogoUrl(e.target.value)}
+                      className="input-base font-mono text-sm"
+                      placeholder="https://example.com/logo.png"
+                      data-testid="site-logo-url-input"
+                    />
+                    <p className="text-xs text-[#A1A1AA] mt-2">
+                      Paste a direct URL to your logo image (PNG, JPG, SVG). This will be used across the entire platform.
+                    </p>
+                  </div>
+                  {/* Logo Preview */}
+                  <div>
+                    <label className="label-text block mb-2">Preview</label>
+                    <div className="border border-[#E4E4E7] rounded-sm p-6 bg-[#FAFAFA] flex items-center justify-center min-h-[120px]" data-testid="logo-preview">
+                      {siteLogoUrl ? (
+                        <img 
+                          src={siteLogoUrl} 
+                          alt="Logo Preview" 
+                          className="max-h-20 w-auto object-contain"
+                          onError={e => { e.target.style.display = 'none'; }}
+                        />
+                      ) : (
+                        <span className="text-sm text-[#A1A1AA]">No logo set</span>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={saveSiteSettings}
+                    disabled={savingSettings}
+                    className="btn-primary flex items-center gap-1.5 text-sm"
+                    data-testid="save-site-settings-btn"
+                  >
+                    <Save className="w-3.5 h-3.5" /> {savingSettings ? 'Saving...' : 'Save Settings'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Preview on different backgrounds */}
+              <div className="space-y-4">
+                <div className="card-base p-6" data-testid="logo-preview-light">
+                  <h4 className="label-text mb-4">Preview - Light Background</h4>
+                  <div className="bg-white border border-[#E4E4E7] rounded-sm p-4 flex items-center gap-3 h-16">
+                    {siteLogoUrl && <img src={siteLogoUrl} alt="Logo" className="h-8 w-auto object-contain" />}
+                    <span className="font-heading font-bold text-[#0A0A0A] text-sm">{siteName || 'Elyn Builder'}</span>
+                  </div>
+                </div>
+                <div className="card-base p-6" data-testid="logo-preview-dark">
+                  <h4 className="label-text mb-4">Preview - Dark Background</h4>
+                  <div className="bg-[#0A0A0A] rounded-sm p-4 flex items-center gap-3 h-16">
+                    {siteLogoUrl && <img src={siteLogoUrl} alt="Logo" className="h-8 w-auto object-contain" />}
+                    <span className="font-heading font-bold text-white text-sm">{siteName || 'Elyn Builder'}</span>
+                  </div>
+                </div>
+                <div className="card-base p-6" data-testid="logo-preview-navbar">
+                  <h4 className="label-text mb-4">Preview - Navigation Bar</h4>
+                  <div className="bg-white border border-[#E4E4E7] rounded-sm p-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {siteLogoUrl && <img src={siteLogoUrl} alt="Logo" className="h-7 w-auto object-contain" />}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="h-6 w-16 bg-zinc-100 rounded-sm" />
+                      <div className="h-6 w-20 bg-[#002FA7] rounded-sm" />
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </TabsContent>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useSiteSettings } from '../hooks/useSiteSettings';
 import { Eye, EyeOff } from 'lucide-react';
 
 export default function RegisterPage() {
@@ -12,6 +13,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
+  const siteSettings = useSiteSettings();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -41,7 +43,7 @@ export default function RegisterPage() {
         </div>
         <div className="relative z-10 max-w-sm px-12 text-white">
           <div className="font-heading text-4xl font-bold tracking-tighter leading-none mb-6">
-            ELYN<span className="text-[#002FA7]">BUILDER</span>
+            <img src={siteSettings.logo_url} alt="Elyn" className="h-14 w-auto object-contain" />
           </div>
           <p className="text-zinc-400 text-base leading-relaxed mb-8">
             Create professional Android & iOS applications from any website. AI-powered, free forever.
@@ -62,8 +64,8 @@ export default function RegisterPage() {
       {/* Right - Form */}
       <div className="flex-1 flex items-center justify-center px-4 md:px-8 lg:px-12">
         <div className="w-full max-w-sm">
-          <Link to="/" className="font-heading text-xl font-bold tracking-tight text-[#0A0A0A] mb-12 block lg:hidden" data-testid="register-logo">
-            ELYN<span className="text-[#002FA7]">BUILDER</span>
+          <Link to="/" className="mb-12 block lg:hidden" data-testid="register-logo">
+            <img src={siteSettings.logo_url} alt="Elyn" className="h-10 w-auto object-contain" />
           </Link>
 
           <h1 className="font-heading text-3xl font-bold tracking-tight text-[#0A0A0A] mb-2">Create account</h1>

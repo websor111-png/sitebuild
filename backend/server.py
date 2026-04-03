@@ -587,6 +587,38 @@ async def admin_get_stats(request: Request):
     }
 
 # ========== HEALTH ==========
+# ========== SITE SETTINGS ==========
+class SiteSettingsUpdate(BaseModel):
+    logo_url: Optional[str] = None
+    site_name: Optional[str] = None
+    favicon_url: Optional[str] = None
+
+@api_router.get("/settings")
+async def get_site_settings():
+    settings = await db.site_settings.find_one({"key": "main"}, {"_id": 0})
+    if not settings:
+        settings = {
+            "key": "main",
+            "logo_url": "https://customer-assets.emergentagent.com/job_deploy-automation-14/artifacts/bf162d38_file_00000000607472438cf619bea5a5c3b5.png",
+            "site_name": "Elyn Builder",
+            "favicon_url": "https://customer-assets.emergentagent.com/job_deploy-automation-14/artifacts/bf162d38_file_00000000607472438cf619bea5a5c3b5.png",
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+    return settings
+
+@api_router.put("/settings")
+async def update_site_settings(req: SiteSettingsUpdate, request: Request):
+    await require_admin(request)
+    update_data = {k: v for k, v in req.model_dump().items() if v is not None}
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await db.site_settings.update_one(
+        {"key": "main"},
+        {"$set": update_data},
+        upsert=True
+    )
+    settings = await db.site_settings.find_one({"key": "main"}, {"_id": 0})
+    return settings
+
 @api_router.get("/")
 async def root():
     return {"message": "Elyn Builder App iOS API", "version": "1.0.0"}
@@ -616,6 +648,18 @@ async def startup():
     await db.apps.create_index("id", unique=True)
     await db.chat_messages.create_index([("app_id", 1), ("user_id", 1)])
     
+    # Seed site settings
+    existing_settings = await db.site_settings.find_one({"key": "main"})
+    if not existing_settings:
+        await db.site_settings.insert_one({
+            "key": "main",
+            "logo_url": "https://customer-assets.emergentagent.com/job_deploy-automation-14/artifacts/bf162d38_file_00000000607472438cf619bea5a5c3b5.png",
+            "site_name": "Elyn Builder",
+            "favicon_url": "https://customer-assets.emergentagent.com/job_deploy-automation-14/artifacts/bf162d38_file_00000000607472438cf619bea5a5c3b5.png",
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        })
+        logger.info("Site settings seeded")
+
     # Seed admin
     admin_email = os.environ.get("ADMIN_EMAIL", "admin@elynbuilder.com")
     admin_password = os.environ.get("ADMIN_PASSWORD", "ElynAdmin2024!")

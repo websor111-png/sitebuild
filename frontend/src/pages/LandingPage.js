@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useSiteSettings } from '../hooks/useSiteSettings';
 import { Smartphone, Zap, Shield, Upload, Bot, Globe } from 'lucide-react';
 
 const features = [
@@ -14,14 +15,15 @@ const features = [
 
 export default function LandingPage() {
   const { user } = useAuth();
+  const siteSettings = useSiteSettings();
 
   return (
     <div className="min-h-screen bg-white">
       {/* Navbar */}
       <nav className="nav-glass fixed top-0 w-full z-50 px-4 md:px-8 lg:px-12" data-testid="navbar">
         <div className="max-w-7xl mx-auto flex items-center justify-between h-16">
-          <Link to="/" className="font-heading text-xl font-bold tracking-tight text-[#0A0A0A]" data-testid="logo">
-            ELYN<span className="text-[#002FA7]">BUILDER</span>
+          <Link to="/" className="flex items-center gap-2" data-testid="logo">
+            <img src={siteSettings.logo_url} alt="Elyn" className="h-14 w-auto object-contain" />
           </Link>
           <div className="flex items-center gap-3">
             {user ? (
@@ -168,8 +170,8 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="border-t border-[#E4E4E7] py-8 px-4 md:px-8 lg:px-12" data-testid="footer">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="font-heading font-bold text-sm text-[#0A0A0A]">
-            ELYN<span className="text-[#002FA7]">BUILDER</span>
+          <div className="flex items-center gap-2">
+            <img src={siteSettings.logo_url} alt="Elyn" className="h-8 w-auto object-contain" />
           </div>
           <p className="text-xs text-[#A1A1AA]">Elyn Builder App iOS. 100% Free Platform.</p>
         </div>

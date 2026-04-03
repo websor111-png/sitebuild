@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useSiteSettings } from '../hooks/useSiteSettings';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { Plus, Settings, Trash2, ExternalLink, LogOut, Shield, Smartphone, Globe } from 'lucide-react';
@@ -19,6 +20,7 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 export default function DashboardPage() {
   const { user, logout, axiosConfig } = useAuth();
   const navigate = useNavigate();
+  const siteSettings = useSiteSettings();
   const [apps, setApps] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -74,8 +76,8 @@ export default function DashboardPage() {
       {/* Top Nav */}
       <nav className="nav-glass sticky top-0 z-50 px-4 md:px-8 lg:px-12" data-testid="dashboard-navbar">
         <div className="max-w-7xl mx-auto flex items-center justify-between h-14">
-          <Link to="/" className="font-heading text-lg font-bold tracking-tight text-[#0A0A0A]">
-            ELYN<span className="text-[#002FA7]">BUILDER</span>
+          <Link to="/" className="flex items-center gap-2">
+            <img src={siteSettings.logo_url} alt="Elyn" className="h-12 w-auto object-contain" />
           </Link>
           <div className="flex items-center gap-4">
             {user?.role === 'admin' && (

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useSiteSettings } from '../hooks/useSiteSettings';
 import { Eye, EyeOff } from 'lucide-react';
 
 export default function LoginPage() {
@@ -11,6 +12,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const siteSettings = useSiteSettings();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -30,8 +32,8 @@ export default function LoginPage() {
       {/* Left - Form */}
       <div className="flex-1 flex items-center justify-center px-4 md:px-8 lg:px-12">
         <div className="w-full max-w-sm">
-          <Link to="/" className="font-heading text-xl font-bold tracking-tight text-[#0A0A0A] mb-12 block" data-testid="login-logo">
-            ELYN<span className="text-[#002FA7]">BUILDER</span>
+          <Link to="/" className="mb-12 block" data-testid="login-logo">
+            <img src={siteSettings.logo_url} alt="Elyn" className="h-10 w-auto object-contain" />
           </Link>
           
           <h1 className="font-heading text-3xl font-bold tracking-tight text-[#0A0A0A] mb-2">Welcome back</h1>
