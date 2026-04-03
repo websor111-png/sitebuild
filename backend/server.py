@@ -587,6 +587,159 @@ async def admin_get_stats(request: Request):
     }
 
 # ========== HEALTH ==========
+# ========== INSTALLER ENDPOINTS ==========
+class InstallRequest(BaseModel):
+    db_host: str = "localhost"
+    db_port: int = 27017
+    db_name: str = "elyn_builder"
+    admin_username: str
+    admin_email: str
+    admin_password: str
+    site_name: str = "Elyn Builder"
+    logo_url: Optional[str] = ""
+    ai_key: Optional[str] = ""
+
+@api_router.get("/install/status")
+async def install_status():
+    """Check if app is already installed"""
+    try:
+        config = await db.install_config.find_one({"key": "installed"}, {"_id": 0})
+        if config and config.get("installed"):
+            return {"installed": True, "installed_at": config.get("installed_at", "")}
+        return {"installed": False}
+    except Exception:
+        return {"installed": False}
+
+@api_router.get("/install/check")
+async def install_check_requirements():
+    """Check server requirements"""
+    checks = []
+    
+    # Check Python
+    import sys
+    py_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    checks.append({"name": "Python", "version": py_version, "required": "3.8+", "ok": sys.version_info >= (3, 8)})
+    
+    # Check MongoDB connection
+    try:
+        await client.admin.command('ping')
+        checks.append({"name": "MongoDB", "version": "Connected", "required": "Running", "ok": True})
+    except Exception as e:
+        checks.append({"name": "MongoDB", "version": str(e)[:50], "required": "Running", "ok": False})
+    
+    # Check FastAPI
+    import fastapi
+    checks.append({"name": "FastAPI", "version": fastapi.__version__, "required": "0.100+", "ok": True})
+    
+    # Check bcrypt
+    checks.append({"name": "bcrypt", "version": "installed", "required": "Required", "ok": True})
+    
+    # Check JWT
+    checks.append({"name": "PyJWT", "version": jwt.__version__ if hasattr(jwt, '__version__') else "installed", "required": "Required", "ok": True})
+    
+    # Check AI library
+    try:
+        from emergentintegrations.llm.chat import LlmChat
+        checks.append({"name": "AI Engine", "version": "Available", "required": "Optional", "ok": True})
+    except Exception:
+        checks.append({"name": "AI Engine", "version": "Not found", "required": "Optional", "ok": False})
+    
+    # Disk space check
+    import shutil
+    total, used, free = shutil.disk_usage("/")
+    free_gb = round(free / (1024**3), 1)
+    checks.append({"name": "Disk Space", "version": f"{free_gb} GB free", "required": "1 GB+", "ok": free_gb >= 1})
+    
+    all_ok = all(c["ok"] for c in checks if c["name"] not in ["AI Engine"])
+    return {"checks": checks, "all_ok": all_ok}
+
+@api_router.post("/install/setup")
+async def install_setup(req: InstallRequest):
+    """Run the installation"""
+    # Check if already installed
+    config = await db.install_config.find_one({"key": "installed"})
+    if config and config.get("installed"):
+        raise HTTPException(status_code=400, detail="Application is already installed. Reset from admin panel to reinstall.")
+    
+    try:
+        # Step 1: Create indexes
+        await db.users.create_index("email", unique=True)
+        await db.login_attempts.create_index("identifier")
+        await db.apps.create_index("user_id")
+        await db.apps.create_index("id", unique=True)
+        await db.chat_messages.create_index([("app_id", 1), ("user_id", 1)])
+        
+        # Step 2: Create admin user
+        existing_admin = await db.users.find_one({"email": req.admin_email.lower().strip()})
+        if existing_admin:
+            # Update existing admin
+            await db.users.update_one(
+                {"email": req.admin_email.lower().strip()},
+                {"$set": {
+                    "username": req.admin_username,
+                    "password_hash": hash_password(req.admin_password),
+                    "role": "admin",
+                    "blocked": False,
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }}
+            )
+        else:
+            await db.users.insert_one({
+                "username": req.admin_username,
+                "email": req.admin_email.lower().strip(),
+                "password_hash": hash_password(req.admin_password),
+                "role": "admin",
+                "blocked": False,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "apps_count": 0
+            })
+        
+        # Step 3: Save site settings
+        await db.site_settings.update_one(
+            {"key": "main"},
+            {"$set": {
+                "site_name": req.site_name,
+                "logo_url": req.logo_url or "https://customer-assets.emergentagent.com/job_deploy-automation-14/artifacts/bf162d38_file_00000000607472438cf619bea5a5c3b5.png",
+                "favicon_url": req.logo_url or "https://customer-assets.emergentagent.com/job_deploy-automation-14/artifacts/bf162d38_file_00000000607472438cf619bea5a5c3b5.png",
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }},
+            upsert=True
+        )
+        
+        # Step 4: Save AI key if provided
+        if req.ai_key:
+            await db.install_config.update_one(
+                {"key": "ai_config"},
+                {"$set": {"ai_key": req.ai_key, "updated_at": datetime.now(timezone.utc).isoformat()}},
+                upsert=True
+            )
+        
+        # Step 5: Mark as installed
+        await db.install_config.update_one(
+            {"key": "installed"},
+            {"$set": {
+                "installed": True,
+                "installed_at": datetime.now(timezone.utc).isoformat(),
+                "admin_email": req.admin_email.lower().strip(),
+                "site_name": req.site_name,
+                "db_name": req.db_name,
+                "version": "1.0.0"
+            }},
+            upsert=True
+        )
+        
+        logger.info(f"Installation completed! Admin: {req.admin_email}")
+        
+        return {
+            "success": True,
+            "message": "Installation completed successfully!",
+            "admin_email": req.admin_email.lower().strip(),
+            "site_name": req.site_name
+        }
+    except Exception as e:
+        logger.error(f"Installation error: {e}")
+        raise HTTPException(status_code=500, detail=f"Installation failed: {str(e)}")
+
 # ========== SITE SETTINGS ==========
 class SiteSettingsUpdate(BaseModel):
     logo_url: Optional[str] = None
