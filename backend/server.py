@@ -323,8 +323,24 @@ Respond in the user's language. Be concise and professional."""
         ai_msg_doc.pop("_id", None)
         return {"response": ai_response, "message_id": ai_msg_doc["id"]}
     except Exception as e:
-        logger.error(f"AI chat error: {e}")
-        raise HTTPException(status_code=500, detail=f"AI service error: {str(e)}")
+        error_msg = str(e)
+        logger.error(f"AI chat error: {error_msg}")
+        if "Budget" in error_msg or "budget" in error_msg:
+            detail = "AI budget exceeded. Please go to Profile → Universal Key → Add Balance to add more credits."
+        else:
+            detail = f"AI service error: {error_msg}"
+        # Save error as AI response so user sees it
+        ai_msg_doc = {
+            "id": str(uuid.uuid4()),
+            "app_id": req.app_id,
+            "user_id": str(user["_id"]),
+            "role": "assistant",
+            "content": f"⚠ {detail}",
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.chat_messages.insert_one(ai_msg_doc)
+        ai_msg_doc.pop("_id", None)
+        raise HTTPException(status_code=500, detail=detail)
 
 @api_router.get("/ai/chat/{app_id}")
 async def get_chat_history(app_id: str, request: Request):

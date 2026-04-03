@@ -91,8 +91,10 @@ export default function AppBuilderPage() {
     try {
       const { data } = await axios.post(`${API}/ai/chat`, { app_id: appId, message: msg }, axiosConfig());
       setChatMessages(prev => [...prev, { role: 'assistant', content: data.response, created_at: new Date().toISOString() }]);
-    } catch {
-      toast.error('AI response failed');
+    } catch (err) {
+      const detail = err.response?.data?.detail || 'AI response failed';
+      setChatMessages(prev => [...prev, { role: 'assistant', content: detail, created_at: new Date().toISOString() }]);
+      toast.error(detail);
     } finally {
       setChatLoading(false);
     }
